@@ -1,0 +1,487 @@
+/* =========================================
+   GLOBAL STYLES
+========================================= */
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+
+    font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Arial,
+        sans-serif;
+
+    background: #ffffff;
+
+    color: #172b4d;
+}
+
+button {
+    font-family: inherit;
+}
+
+/* =========================================
+   MAIN CONTAINER
+========================================= */
+
+.calendar-container {
+    width: 100%;
+
+    padding: 24px;
+
+    background: #ffffff;
+}
+
+/* =========================================
+   CALENDAR HEADER
+========================================= */
+
+.calendar-header {
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    flex-wrap: wrap;
+
+    gap: 16px;
+
+    margin-bottom: 25px;
+}
+
+.header-title h1 {
+    font-size: 24px;
+
+    font-weight: 600;
+
+    margin: 0 0 6px;
+}
+
+.header-title p {
+    font-size: 13px;
+
+    color: #626f86;
+
+    margin: 0;
+}
+
+/* =========================================
+   HEADER BUTTONS
+========================================= */
+
+.header-buttons {
+    display: flex;
+
+    align-items: center;
+
+    gap: 8px;
+}
+
+.primary-button,
+.secondary-button {
+
+    padding: 9px 15px;
+
+    border-radius: 4px;
+
+    cursor: pointer;
+
+    font-size: 13px;
+
+    font-weight: 600;
+
+    transition:
+        background 0.2s ease,
+        border-color 0.2s ease,
+        transform 0.15s ease;
+
+}
+
+/* PRIMARY BUTTON */
+
+.primary-button {
+
+    background: #0c66e4;
+
+    color: #ffffff;
+
+    border: 1px solid #0c66e4;
+
+}
+
+.primary-button:hover:not(:disabled) {
+
+    background: #0055cc;
+
+    border-color: #0055cc;
+
+}
+
+.primary-button:disabled {
+
+    opacity: 0.6;
+
+    cursor: not-allowed;
+
+}
+
+/* SECONDARY BUTTON */
+
+.secondary-button {
+
+    background: #ffffff;
+
+    color: #172b4d;
+
+    border: 1px solid #dfe1e6;
+
+}
+
+.secondary-button:hover {
+
+    background: #f1f2f4;
+
+    border-color: #b3bac5;
+
+}
+
+/* NAVIGATION BUTTON */
+
+.navigation-button {
+
+    min-width: 36px;
+
+    padding: 9px 10px;
+
+}
+
+/* =========================================
+   MONTH TITLE
+========================================= */
+
+.month-title {
+
+    font-size: 20px;
+
+    font-weight: 600;
+
+    margin: 10px 0 18px;
+
+    color: #172b4d;
+
+}
+
+/* =========================================
+   CALENDAR GRID
+========================================= */
+
+.calendar-grid {
+
+    display: grid;
+
+    grid-template-columns:
+        repeat(7, minmax(100px, 1fr));
+
+    border-top: 1px solid #dfe1e6;
+
+    border-left: 1px solid #dfe1e6;
+
+    overflow-x: auto;
+
+}
+
+/* =========================================
+   WEEKDAY HEADER
+========================================= */
+
+.weekday-header {
+
+    background: #f7f8f9;
+
+    border-right: 1px solid #dfe1e6;
+
+    border-bottom: 1px solid #dfe1e6;
+
+    padding: 12px;
+
+    text-align: center;
+
+    font-size: 12px;
+
+    font-weight: 600;
+
+    color: #44546f;
+
+}
+
+/* =========================================
+   CALENDAR DAY
+========================================= */
+
+.calendar-day {
+
+    min-height: 120px;
+
+    min-width: 100px;
+
+    padding: 8px;
+
+    background: #ffffff;
+
+    border-right: 1px solid #dfe1e6;
+
+    border-bottom: 1px solid #dfe1e6;
+
+    transition: background 0.2s ease;
+
+}
+
+/* =========================================
+   OTHER MONTH DATES
+========================================= */
+
+.other-month {
+
+    background: #fafbfc;
+
+    color: #97a0af;
+
+}
+
+/* =========================================
+   TODAY
+========================================= */
+
+.today {
+
+    background: #f0f6ff;
+
+}
+
+.today .date-number {
+
+    color: #0c66e4;
+
+    font-weight: 700;
+
+}
+
+/* =========================================
+   DATE NUMBER
+========================================= */
+
+.date-number {
+
+    font-size: 12px;
+
+    font-weight: 600;
+
+    margin-bottom: 8px;
+
+}
+
+/* =========================================
+   EVENTS CONTAINER
+========================================= */
+
+.events-container {
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 4px;
+
+}
+
+/* =========================================
+   CALENDAR EVENT
+========================================= */
+
+.calendar-event {
+
+    width: 100%;
+
+    display: block;
+
+    padding: 5px 7px;
+
+    background: #dbeafe;
+
+    color: #0747a6;
+
+    border: none;
+
+    border-left: 3px solid #2684ff;
+
+    border-radius: 3px;
+
+    font-size: 11px;
+
+    font-weight: 500;
+
+    text-align: left;
+
+    cursor: pointer;
+
+    overflow-wrap: anywhere;
+
+    transition:
+        background 0.2s ease,
+        color 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.2s ease,
+        transform 0.15s ease;
+
+}
+
+/* =========================================
+   EVENT HOVER EFFECT
+========================================= */
+
+.calendar-event:hover {
+
+    background: #85b8f9;
+
+    color: #0747a6;
+
+    border-left-color: #0747a6;
+
+    box-shadow:
+        0 2px 6px rgba(9, 30, 66, 0.18);
+
+    transform: translateY(-1px);
+
+}
+
+/* =========================================
+   EVENT CLICK EFFECT
+========================================= */
+
+.calendar-event:active {
+
+    background: #579dff;
+
+    transform: translateY(0);
+
+}
+
+/* =========================================
+   EVENT KEYBOARD FOCUS
+========================================= */
+
+.calendar-event:focus-visible {
+
+    outline: 2px solid #0c66e4;
+
+    outline-offset: 2px;
+
+}
+
+/* =========================================
+   LOADING MESSAGE
+========================================= */
+
+.loading-message {
+
+    padding: 12px;
+
+    margin-bottom: 12px;
+
+    background: #f1f2f4;
+
+    color: #44546f;
+
+    border-radius: 4px;
+
+    font-size: 13px;
+
+}
+
+/* =========================================
+   ERROR MESSAGE
+========================================= */
+
+.error-message {
+
+    padding: 12px;
+
+    margin-bottom: 12px;
+
+    background: #ffebe6;
+
+    color: #ae2a19;
+
+    border-radius: 4px;
+
+    font-size: 13px;
+
+}
+
+/* =========================================
+   CALENDAR FOOTER
+========================================= */
+
+.calendar-footer {
+
+    margin-top: 15px;
+
+    color: #626f86;
+
+    font-size: 12px;
+
+    line-height: 1.6;
+
+}
+
+.footer-hint {
+
+    display: block;
+
+    margin-top: 5px;
+
+    color: #0c66e4;
+
+    font-size: 12px;
+
+}
+
+/* =========================================
+   RESPONSIVE DESIGN
+========================================= */
+
+@media (max-width: 800px) {
+
+    .calendar-container {
+
+        padding: 12px;
+
+    }
+
+    .calendar-grid {
+
+        grid-template-columns:
+            repeat(7, minmax(100px, 1fr));
+
+    }
+
+    .calendar-header {
+
+        align-items: flex-start;
+
+    }
+
+    .header-buttons {
+
+        flex-wrap: wrap;
+
+    }
+
+}

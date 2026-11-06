@@ -1,0 +1,14 @@
+{
+  "name": "space-calendar-jira",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "build": "npm --prefix static/hello-world run build"
+  },
+  "dependencies": {
+    "@forge/api": "^6.4.3",
+    "@forge/kvs": "^1.0.0",
+    "@forge/resolver": "^1.6.0"
+  }
+}
