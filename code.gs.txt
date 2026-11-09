@@ -1,0 +1,477 @@
+
+/************************************************************
+ * JIRA TO GOOGLE CALENDAR SYNCHRONIZATION
+ *
+ * Jira fields:
+ * Start Date: customfield_10015
+ * Due Date:   duedate
+ *
+ * Features:
+ * 1. Create Google Calendar events.
+ * 2. Update existing events.
+ * 3. Delete events when Jira issues are deleted.
+ * 4. Delete events after their due dates pass.
+ * 5. Prevent duplicate events.
+ ************************************************************/
+
+// ==========================================================
+// CONFIGURATION
+// ==========================================================
+
+const CONFIG = {
+  START_DATE_FIELD: 'customfield_10015',
+  DUE_DATE_FIELD: 'duedate',
+
+  JIRA_BASE_URL: 'https://swasthik-mgtech.atlassian.net',
+
+  TIME_ZONE: 'Asia/Kolkata',
+
+  PROPERTY_PREFIX: 'JIRA_EVENT_',
+
+  TOKEN_PROPERTY: 'JIRA_WEBHOOK_SECRET'
+};
+
+
+// ==========================================================
+// INITIAL SETUP
+// Run initialize() manually once from the editor.
+// ==========================================================
+
+
+function initialize() {
+  const properties = PropertiesService.getScriptProperties();
+
+  let token = properties.getProperty(CONFIG.TOKEN_PROPERTY);
+
+  if (!token) {
+    token =
+      Utilities.getUuid().replace(/-/g, '') +
+      Utilities.getUuid().replace(/-/g, '');
+
+    properties.setProperty(CONFIG.TOKEN_PROPERTY, token);
+
+    Logger.log('NEW WEBHOOK TOKEN: ' + token);
+  } else {
+    Logger.log('Webhook token already exists.');
+  }
+
+  // Check Google Calendar access.
+  const calendar = CalendarApp.getDefaultCalendar();
+
+  if (!calendar) {
+    throw new Error('Unable to access Google Calendar.');
+  }
+
+  Logger.log('Google Calendar connected: ' + calendar.getName());
+  Logger.log('Initialization completed.');
+}
+
+
+// ==========================================================
+// DATE UTILITIES
+// ==========================================================
+
+function isValidDate(value) {
+  if (
+    typeof value !== 'string' ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(value)
+  ) {
+    return false;
+  }
+
+  const parts = value.split('-').map(Number);
+
+  const date = new Date(
+    parts[0],
+    parts[1] - 1,
+    parts[2]
+  );
+
+  return (
+    date.getFullYear() === parts[0] &&
+    date.getMonth() === parts[1] - 1 &&
+    date.getDate() === parts[2]
+  );
+}
+
+
+function parseDate(dateString) {
+  if (!isValidDate(dateString)) {
+    throw new Error('Invalid date: ' + dateString);
+  }
+
+  const parts = dateString.split('-').map(Number);
+
+  return new Date(
+    parts[0],
+    parts[1] - 1,
+    parts[2]
+  );
+}
+
+
+function addOneDay(date) {
+  const result = new Date(date);
+
+  result.setDate(result.getDate() + 1);
+
+  return result;
+}
+
+
+function getTodayDate() {
+  return Utilities.formatDate(
+    new Date(),
+    CONFIG.TIME_ZONE,
+    'yyyy-MM-dd'
+  );
+}
+
+
+// ==========================================================
+// GOOGLE CALENDAR ACCESS
+// ==========================================================
+
+function getCalendar() {
+  const calendar = CalendarApp.getDefaultCalendar();
+
+  if (!calendar) {
+    throw new Error('Default Google Calendar is unavailable.');
+  }
+
+  return calendar;
+}
+
+
+// ==========================================================
+// EVENT MAPPING
+// Store Jira issue key -> Google Calendar event ID.
+// ==========================================================
+
+function getEventPropertyKey(issueKey) {
+  return CONFIG.PROPERTY_PREFIX + issueKey;
+}
+
+
+function getStoredEventId(issueKey) {
+  return PropertiesService
+    .getScriptProperties()
+    .getProperty(getEventPropertyKey(issueKey));
+}
+
+
+function saveEventId(issueKey, eventId) {
+  PropertiesService
+    .getScriptProperties()
+    .setProperty(getEventPropertyKey(issueKey), eventId);
+}
+
+
+function removeEventMapping(issueKey) {
+  PropertiesService
+    .getScriptProperties()
+    .deleteProperty(getEventPropertyKey(issueKey));
+}
+
+
+// ==========================================================
+// DELETE A JIRA ISSUE'S GOOGLE CALENDAR EVENT
+// ==========================================================
+
+function deleteJiraCalendarEvent(issueKey) {
+  if (!issueKey) {
+    return;
+  }
+
+  const eventId = getStoredEventId(issueKey);
+
+  if (!eventId) {
+    Logger.log('No mapped event for ' + issueKey);
+    return;
+  }
+
+  const calendar = getCalendar();
+
+  const event = calendar.getEventById(eventId);
+
+  if (event) {
+    event.deleteEvent();
+
+    Logger.log('Deleted Google Calendar event for ' + issueKey);
+  } else {
+    Logger.log('Google Calendar event already absent for ' + issueKey);
+  }
+
+  removeEventMapping(issueKey);
+}
+
+
+// ==========================================================
+// CREATE OR UPDATE GOOGLE CALENDAR EVENT
+// ==========================================================
+
+function synchronizeJiraIssue(issue) {
+  if (!issue || !issue.key || !issue.fields) {
+    throw new Error('Jira issue information is incomplete.');
+  }
+
+  const issueKey = issue.key;
+  const fields = issue.fields;
+
+  const startDateString = fields[CONFIG.START_DATE_FIELD];
+  const dueDateString = fields[CONFIG.DUE_DATE_FIELD];
+
+  const today = getTodayDate();
+
+  // If dates are missing or invalid, remove any old event.
+  if (
+    !isValidDate(startDateString) ||
+    !isValidDate(dueDateString) ||
+    dueDateString < startDateString
+  ) {
+    deleteJiraCalendarEvent(issueKey);
+    Logger.log('Skipped invalid dates for ' + issueKey);
+    return;
+  }
+
+  // Delete events when the due date has passed.
+  if (dueDateString < today) {
+    deleteJiraCalendarEvent(issueKey);
+    Logger.log('Expired Jira event: ' + issueKey);
+    return;
+  }
+
+  const calendar = getCalendar();
+
+  const startDate = parseDate(startDateString);
+
+  // Google all-day events use an exclusive end date.
+  const endDate = addOneDay(parseDate(dueDateString));
+
+  const summary = fields.summary || issueKey;
+
+  const title = issueKey + ': ' + summary;
+
+  const description =
+    'Jira Issue: ' + issueKey + '\n' +
+    'Start Date: ' + startDateString + '\n' +
+    'Due Date: ' + dueDateString + '\n\n' +
+    'Open Jira Issue:\n' +
+    CONFIG.JIRA_BASE_URL + '/browse/' + issueKey;
+
+  const storedEventId = getStoredEventId(issueKey);
+
+  let event = storedEventId
+    ? calendar.getEventById(storedEventId)
+    : null;
+
+  if (event) {
+    // Update the existing event.
+    event.setTitle(title);
+
+    event.setAllDayDates(startDate, endDate);
+
+    event.setDescription(description);
+
+    Logger.log('Updated Google Calendar event: ' + issueKey);
+
+  } else {
+    // Create a new event if no mapped event exists.
+    event = calendar.createAllDayEvent(
+      title,
+      startDate,
+      endDate,
+      {
+        description: description
+      }
+    );
+
+    saveEventId(issueKey, event.getId());
+
+    Logger.log('Created Google Calendar event: ' + issueKey);
+  }
+}
+
+
+// ==========================================================
+// JIRA WEBHOOK RECEIVER
+// Configure Jira to POST to this web app URL.
+// ==========================================================
+
+function doPost(e) {
+  try {
+    const properties = PropertiesService.getScriptProperties();
+
+    const expectedToken = properties.getProperty(
+      CONFIG.TOKEN_PROPERTY
+    );
+
+    const receivedToken = e && e.parameter
+      ? e.parameter.token
+      : null;
+
+    if (
+      !expectedToken ||
+      !receivedToken ||
+      receivedToken !== expectedToken
+    ) {
+      Logger.log('Webhook authentication failed.');
+
+      return ContentService
+        .createTextOutput(
+          JSON.stringify({
+            success: false,
+            message: 'Unauthorized'
+          })
+        )
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    if (!e || !e.postData || !e.postData.contents) {
+      throw new Error('Webhook request body is empty.');
+    }
+
+    const payload = JSON.parse(e.postData.contents);
+
+    const webhookEvent = payload.webhookEvent;
+
+    const issue = payload.issue;
+
+    if (!issue || !issue.key) {
+      throw new Error('Jira issue key is missing.');
+    }
+
+    const issueKey = issue.key;
+
+    Logger.log(
+      'Received Jira event: ' +
+      webhookEvent +
+      ' for ' +
+      issueKey
+    );
+
+    if (webhookEvent === 'jira:issue_deleted') {
+      deleteJiraCalendarEvent(issueKey);
+
+    } else if (
+      webhookEvent === 'jira:issue_created' ||
+      webhookEvent === 'jira:issue_updated'
+    ) {
+      synchronizeJiraIssue(issue);
+
+    } else {
+      Logger.log('Ignoring unsupported webhook event.');
+    }
+
+    return ContentService
+      .createTextOutput(
+        JSON.stringify({
+          success: true,
+          issueKey: issueKey,
+          event: webhookEvent
+        })
+      )
+      .setMimeType(ContentService.MimeType.JSON);
+
+  } catch (error) {
+    Logger.log('Webhook processing error: ' + error.message);
+
+    return ContentService
+      .createTextOutput(
+        JSON.stringify({
+          success: false,
+          message: error.message
+        })
+      )
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+
+// ==========================================================
+// AUTOMATIC EXPIRY CLEANUP
+// Runs through the hourly time-driven trigger.
+// ==========================================================
+
+function deleteExpiredEvents() {
+  const today = getTodayDate();
+
+  const properties = PropertiesService.getScriptProperties();
+
+  const allProperties = properties.getProperties();
+
+  const calendar = getCalendar();
+
+  let deletedCount = 0;
+
+  for (const propertyKey in allProperties) {
+    if (!propertyKey.startsWith(CONFIG.PROPERTY_PREFIX)) {
+      continue;
+    }
+
+    const issueKey = propertyKey.substring(
+      CONFIG.PROPERTY_PREFIX.length
+    );
+
+    const eventId = allProperties[propertyKey];
+
+    const event = calendar.getEventById(eventId);
+
+    if (!event) {
+      removeEventMapping(issueKey);
+      continue;
+    }
+
+    const eventEnd = Utilities.formatDate(
+      event.getEndTime(),
+      CONFIG.TIME_ZONE,
+      'yyyy-MM-dd'
+    );
+
+    // The all-day event ends on the day after the due date.
+    // Remove it when that end date is today or earlier.
+    if (eventEnd <= today) {
+      event.deleteEvent();
+
+      removeEventMapping(issueKey);
+
+      deletedCount++;
+
+      Logger.log(
+        'Expired event deleted: ' + issueKey
+      );
+    }
+  }
+
+  Logger.log(
+    'Expiry cleanup completed. Deleted events: ' + deletedCount
+  );
+}
+
+
+// ==========================================================
+// MANUAL TEST
+// Creates a temporary test event and deletes it.
+// ==========================================================
+
+function testCalendarAccess() {
+  const calendar = getCalendar();
+
+  const today = new Date();
+
+  const tomorrow = addOneDay(today);
+
+  const testEvent = calendar.createAllDayEvent(
+    'Jira Calendar Integration Test',
+    today,
+    tomorrow
+  );
+
+  Logger.log(
+    'Test event created: ' + testEvent.getTitle()
+  );
+
+  testEvent.deleteEvent();
+
+  Logger.log('Test event deleted successfully.');
+}
